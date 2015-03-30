@@ -16,7 +16,7 @@ php composer.phar require --prefer-dist maddoger/yii2-filebehavior "*"
 or add
 
 ```
-"maddoger/yii2-filebehaviore": "*"
+"maddoger/yii2-filebehavior": "*"
 ```
 
 to the require section of your `composer.json` file.
