@@ -1,6 +1,6 @@
 <?php
 /**
- * @copyright Copyright (c) 2014 Vitaliy Syrchikov
+ * @copyright Copyright (c) 2014-2016 Vitaliy Syrchikov
  * @link http://syrchikov.name
  */
 
@@ -12,12 +12,15 @@ use yii\base\Exception;
 use yii\base\ModelEvent;
 use yii\db\ActiveRecord;
 use yii\helpers\FileHelper;
+use yii\helpers\Html;
 use yii\helpers\Inflector;
 use yii\helpers\StringHelper;
 use yii\web\UploadedFile;
 
 /**
  * FileBehavior
+ *
+ * You must create aliases @static and @staticUrl for folder for uploaded files
  *
  * @author Vitaliy Syrchikov <maddoger@gmail.com>
  * @link http://syrchikov.name
@@ -89,6 +92,7 @@ class FileBehavior extends Behavior
      * @var UploadedFile
      */
     public $file = null;
+
     /**
      * @var string old value of attribute
      */
@@ -151,8 +155,10 @@ class FileBehavior extends Behavior
     {
         if ($this->owner->isAttributeSafe($this->attribute)) {
 
-            if ($this->owner->{$this->attribute} instanceof UploadedFile) {
-                $this->file = $this->owner->{$this->attribute};
+            $attributeValue = $this->owner->{$this->attribute};
+
+            if ($attributeValue instanceof UploadedFile) {
+                $this->file = $attributeValue;
             }
 
             if (is_null($this->file)) {
@@ -265,7 +271,9 @@ class FileBehavior extends Behavior
      */
     public function afterDelete()
     {
-        $this->deleteFileInternal();
+        if ($this->deleteFileWithModel) {
+            $this->deleteFileInternal();
+        }
     }
 
     /**
@@ -277,7 +285,8 @@ class FileBehavior extends Behavior
     {
         $behavior = $this->getBehaviorByAttribute($attribute);
         if ($behavior) {
-            $url = (is_string($this->owner->{$attribute})) ? $this->owner->{$attribute} : $behavior->oldValue;
+            $attributeValue = $this->owner->{$attribute};
+            $url = is_string($attribute) ? $attribute : $behavior->oldValue;
             return $this->getFilePathFromUrl($url);
         }
 
@@ -326,8 +335,8 @@ class FileBehavior extends Behavior
     protected function getFilePathFromUrl($url)
     {
         return str_replace(
-            \Yii::getAlias($this->baseUrl),
-            \Yii::getAlias($this->basePath),
+            Yii::getAlias($this->baseUrl),
+            Yii::getAlias($this->basePath),
             $url);
     }
 
@@ -368,7 +377,7 @@ class FileBehavior extends Behavior
      */
     protected function generateFilePathInternal($fileName = null)
     {
-        return \Yii::getAlias(
+        return Yii::getAlias(
             rtrim($this->basePath, '/') . '/' .
             ltrim($fileName ?: $this->generateName(), '/')
         );
@@ -381,7 +390,7 @@ class FileBehavior extends Behavior
      */
     protected function generateFileUrlInternal($fileName = null)
     {
-        return \Yii::getAlias(
+        return Yii::getAlias(
             rtrim($this->baseUrl, '/') . '/' .
             ltrim($fileName ?: $this->generateName(), '/')
         );
@@ -420,5 +429,4 @@ class FileBehavior extends Behavior
             $this->oldValue = null;
         }
     }
-
 }
