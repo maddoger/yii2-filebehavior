@@ -15,6 +15,7 @@ use yii\helpers\FileHelper;
 use yii\helpers\Html;
 use yii\helpers\Inflector;
 use yii\helpers\StringHelper;
+use yii\log\Logger;
 use yii\web\UploadedFile;
 
 /**
@@ -94,6 +95,17 @@ class FileBehavior extends Behavior
     public $file = null;
 
     /**
+     * @var bool Save to temporary file before model save
+     */
+    public $saveTemp = true;
+
+    /**
+     * @var string prefix for temp file.
+     * It will used for saving and for the file identification for renaming.
+     */
+    public $tempPrefix = 'temp_file_';
+
+    /**
      * @var string old value of attribute
      */
     protected $oldValue = null;
@@ -132,6 +144,7 @@ class FileBehavior extends Behavior
         return [
             ActiveRecord::EVENT_AFTER_FIND => 'afterFind',
             ActiveRecord::EVENT_BEFORE_VALIDATE => 'beforeValidate',
+            ActiveRecord::EVENT_AFTER_VALIDATE => 'afterValidate',
             ActiveRecord::EVENT_BEFORE_INSERT => 'beforeSave',
             ActiveRecord::EVENT_BEFORE_UPDATE => 'beforeSave',
             ActiveRecord::EVENT_AFTER_INSERT => 'afterSave',
@@ -157,8 +170,18 @@ class FileBehavior extends Behavior
 
             $attributeValue = $this->owner->{$this->attribute};
 
+            //Is attribute a file?
             if ($attributeValue instanceof UploadedFile) {
                 $this->file = $attributeValue;
+            }
+
+            //Or is a temp file
+            if (
+                $this->saveTemp &&
+                $attributeValue &&
+                strpos($attributeValue, $this->generateFileUrlInternal($this->tempPrefix)) !== false
+            ) {
+                $this->file = FakeUploadedFile::getFromUrl($attributeValue);
             }
 
             if (is_null($this->file)) {
@@ -166,7 +189,9 @@ class FileBehavior extends Behavior
             }
 
             if ($this->file instanceof UploadedFile && !$this->file->hasError) {
+
                 $this->owner->{$this->attribute} = $this->file;
+
             } else {
                 $this->file = null;
 
@@ -188,6 +213,32 @@ class FileBehavior extends Behavior
     }
 
     /**
+     * After validation event
+     */
+    public function afterValidate()
+    {
+        //Save file to temp.
+        //Save only new files
+        //And if file does not have errors after validation
+        if (
+            $this->saveTemp &&
+            $this->file instanceof UploadedFile &&
+            !$this->file instanceof  FakeUploadedFile &&
+            !$this->owner->hasErrors($this->attribute)
+        ) {
+            $fileName = $this->tempPrefix.mt_rand().'.'.$this->file->getExtension();
+
+            $path = $this->generateFilePathInternal($fileName);
+
+            FileHelper::createDirectory(dirname($path));
+            if (copy($this->file->tempName, $path)) {
+                $this->owner->{$this->attribute} = $this->generateFileUrlInternal($fileName);
+                Yii::getLogger()->log('Save temparary file to '.$path, Logger::LEVEL_INFO);
+            }
+        }
+    }
+
+    /**
      * Before save event.
      */
     public function beforeSave()
@@ -197,7 +248,6 @@ class FileBehavior extends Behavior
                 $this->deleteFileInternal();
             }
             $this->oldValue = null;
-            $this->owner->{$this->attribute} = $this->file->baseName . '.' . $this->file->extension;
         } else {
 
             //Delete old file if needed
