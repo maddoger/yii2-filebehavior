@@ -336,7 +336,7 @@ class FileBehavior extends Behavior
         $behavior = $this->getBehaviorByAttribute($attribute);
         if ($behavior) {
             $attributeValue = $this->owner->{$attribute};
-            $url = is_string($attribute) ? $attribute : $behavior->oldValue;
+            $url = is_string($attributeValue) ? $attributeValue : $behavior->oldValue;
             return $this->getFilePathFromUrl($url);
         }
 
