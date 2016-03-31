@@ -111,6 +111,11 @@ class FileBehavior extends Behavior
     protected $oldValue = null;
 
     /**
+     * @var string
+     */
+    private $_tempFile;
+
+    /**
      * @inheritdoc
      * @throws Exception
      */
@@ -179,7 +184,7 @@ class FileBehavior extends Behavior
             if (
                 $this->saveTemp &&
                 $attributeValue &&
-                strpos($attributeValue, $this->generateFileUrlInternal($this->tempPrefix)) !== false
+                $this->isTempFile($attributeValue)
             ) {
                 $this->file = FakeUploadedFile::getFromUrl($attributeValue);
             }
@@ -232,6 +237,7 @@ class FileBehavior extends Behavior
 
             FileHelper::createDirectory(dirname($path));
             if (copy($this->file->tempName, $path)) {
+                $this->_tempFile = $path;
                 $this->owner->{$this->attribute} = $this->generateFileUrlInternal($fileName);
                 Yii::getLogger()->log('Save temparary file to '.$path, Logger::LEVEL_INFO);
             }
@@ -296,6 +302,11 @@ class FileBehavior extends Behavior
             }
 
             $this->afterFileSaving();
+
+            //Delete temp file
+            if ($this->saveTemp && $this->_tempFile && is_file($this->_tempFile)) {
+                unlink($this->_tempFile);
+            }
 
             $this->owner->setOldAttribute($this->attribute, $url);
             $this->owner->setAttribute($this->attribute, $url);
@@ -478,5 +489,14 @@ class FileBehavior extends Behavior
             }
             $this->oldValue = null;
         }
+    }
+
+    /**
+     * @param $url
+     * @return bool
+     */
+    protected function isTempFile($url)
+    {
+        return strpos($url, $this->generateFileUrlInternal($this->tempPrefix)) !== false;
     }
 }
